@@ -6,64 +6,57 @@
 // HTMLファイルを読み込んで配信します
 
 import http from 'node:http';
-import fs from 'node:fs';        // ファイルシステムモジュール
-import path from 'node:path';    // パス操作モジュール
-
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 const PORT = 3000;
-
 const __dirname = import.meta.dirname;
 
+// Content-Typeマッピング
+const CONTENT_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.json': 'application/json',
+};
 
 // 静的ファイルを配信する関数
-function serveStaticFile(fileName, res) {
-  // path.join()で安全にパスを結合
-  // __dirname: 現在のファイルがあるディレクトリ
-  // 'public': publicフォルダ
-  // fileName: 読み込むファイル名
+async function serveStaticFile(fileName, res) {
   const filePath = path.join(__dirname, 'public', fileName);
   
   console.log(`ファイルを読み込み中: ${filePath}`);
   
-  // fs.readFile()でファイルを非同期で読み込む
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      // ファイルが見つからない場合
-      console.error(`ファイルが見つかりません: ${filePath}`);
-      res.statusCode = 404;
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.end('ファイルが見つかりません');
-      return;
-    }
+  try {
+    const data = await fs.readFile(filePath);
     
-    // ファイルが見つかった場合
     // 拡張子からContent-Typeを判定
     const ext = path.extname(fileName).toLowerCase();
-    let contentType = 'text/plain';
-    
-    if (ext === '.html') {
-      contentType = 'text/html; charset=utf-8';
-    } else if (ext === '.css') {
-      contentType = 'text/css';
-    } else if (ext === '.js') {
-      contentType = 'application/javascript';
-    } else if (ext === '.png') {
-      contentType = 'image/png';
-    }
+    const contentType = CONTENT_TYPES[ext] || 'text/plain';
     
     res.statusCode = 200;
     res.setHeader('Content-Type', contentType);
     res.end(data);
     console.log(`ファイルを配信しました: ${fileName}`);
-  });
+  } catch (err) {
+    // ファイルが見つからない場合
+    console.error(`ファイルが見つかりません: ${filePath}`);
+    res.statusCode = 404;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end('ファイルが見つかりません');
+  }
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   console.log(`リクエスト受信: ${req.method} ${req.url}`);
   
   // URLが '/' の場合、index.htmlを配信
   if (req.url === '/') {
-    serveStaticFile('index.html', res);
+    await serveStaticFile('index.html', res);
   } else {
     // その他のURLの場合、404を返す（後で改善します）
     res.statusCode = 404;
