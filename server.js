@@ -8,7 +8,6 @@
 // イベント駆動型のプログラミングを学びます
 
 import http from 'node:http';
-import https from 'node:https';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
@@ -68,43 +67,26 @@ const CONTENT_TYPES = {
  * 無料・APIキー不要・リアルタイムは無制限
  * @returns {Promise<{ price: number | null; error?: string }>}
  */
-function fetchGoldPrice() {
-  return new Promise((resolve) => {
-    const options = {
-      hostname: 'api.gold-api.com',
-      path: '/price/XAU',
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    };
-
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        try {
-          if (res.statusCode === 200) {
-            const json = JSON.parse(data);
-            const p = json?.price;
-            if (typeof p === 'number' && !Number.isNaN(p)) {
-              resolve({ price: p });
-            } else {
-              resolve({ price: null, error: 'Invalid price in response' });
-            }
-          } else {
-            resolve({ price: null, error: `API Error ${res.statusCode}: ${data}` });
-          }
-        } catch (e) {
-          resolve({ price: null, error: `Parse error: ${e.message}` });
-        }
-      });
-    });
-
-    req.on('error', (e) => {
-      resolve({ price: null, error: `Request error: ${e.message}` });
-    });
-
-    req.end();
-  });
+async function fetchGoldPrice() {
+  try {
+    const res = await fetch('https://api.gold-api.com/price/XAU');
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      return { price: null, error: `API Error ${res.status}: ${errorText}` };
+    }
+    
+    const json = await res.json();
+    const price = json?.price;
+    
+    if (typeof price === 'number' && !Number.isNaN(price)) {
+      return { price };
+    } else {
+      return { price: null, error: 'Invalid price in response' };
+    }
+  } catch (e) {
+    return { price: null, error: `Request error: ${e.message}` };
+  }
 }
 
 // 静的ファイルを配信する関数
