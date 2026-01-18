@@ -1,17 +1,53 @@
 // ============================================
 // ステップ1: 最小限のHTTPサーバー ✅
 // ステップ2: fs/pathモジュールで静的ファイル配信 ✅
-// ステップ3: 簡単なルーティングを実装
+// ステップ3: 簡単なルーティングを実装 ✅
+// ステップ4: EventEmitterの基本を理解
 // ============================================
-// このステップでは、URLに基づいて
-// 適切なファイルを配信するルーティングを実装します
+// このステップでは、EventEmitterを使って
+// イベント駆動型のプログラミングを学びます
 
 import http from 'node:http';
+import https from 'node:https';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { EventEmitter } from 'node:events';
 
 const PORT = 3000;
 const __dirname = import.meta.dirname;
+
+// ============================================
+// EventEmitterの基本例
+// ============================================
+// EventEmitterは、イベントを発火（emit）して
+// それをリッスン（on）する仕組みです
+
+// 1. EventEmitterのインスタンスを作成
+const myEmitter = new EventEmitter();
+
+// 2. イベントをリッスン（待ち受け）する
+// 'greet'というイベントが発火されたら、この関数が実行される
+myEmitter.on('greet', (name) => {
+  console.log(`こんにちは、${name}さん！`);
+});
+myEmitter.on('sum', (a, b) => {
+  console.log(`${a} + ${b} = ${a + b}`);
+});
+myEmitter.emit('sum', 4,6);
+
+// 3. イベントを発火する
+// この行が実行されると、上で登録した関数が呼ばれる
+myEmitter.emit('greet', '太郎');
+
+// 4. 複数のリスナーを登録することもできる
+myEmitter.on('greet', (name) => {
+  console.log(`Hello, ${name}!`);
+});
+
+// 5. もう一度発火すると、両方のリスナーが実行される
+myEmitter.emit('greet', '花子');
+
+console.log('--- EventEmitterのデモ完了 ---\n');
 
 // Content-Typeマッピング
 const CONTENT_TYPES = {
@@ -25,6 +61,51 @@ const CONTENT_TYPES = {
   '.svg': 'image/svg+xml',
   '.json': 'application/json',
 };
+
+/**
+ * Gold-API.com から金価格（XAU）を取得する（1 troy oz あたり USD）
+ * GET https://api.gold-api.com/price/XAU
+ * 無料・APIキー不要・リアルタイムは無制限
+ * @returns {Promise<{ price: number | null; error?: string }>}
+ */
+function fetchGoldPrice() {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.gold-api.com',
+      path: '/price/XAU',
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          if (res.statusCode === 200) {
+            const json = JSON.parse(data);
+            const p = json?.price;
+            if (typeof p === 'number' && !Number.isNaN(p)) {
+              resolve({ price: p });
+            } else {
+              resolve({ price: null, error: 'Invalid price in response' });
+            }
+          } else {
+            resolve({ price: null, error: `API Error ${res.statusCode}: ${data}` });
+          }
+        } catch (e) {
+          resolve({ price: null, error: `Parse error: ${e.message}` });
+        }
+      });
+    });
+
+    req.on('error', (e) => {
+      resolve({ price: null, error: `Request error: ${e.message}` });
+    });
+
+    req.end();
+  });
+}
 
 // 静的ファイルを配信する関数
 async function serveStaticFile(fileName, res) {
@@ -73,6 +154,13 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/') {
     // ルートパス: index.htmlを配信
     await serveStaticFile('index.html', res);
+  } else if (pathname === '/api/price') {
+    // 金価格API: 1 Oz あたり USD（Gold-API.com）
+    const { price, error } = await fetchGoldPrice();
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.end(JSON.stringify({ price, error }));
   } else if (pathname.startsWith('/')) {
     // 静的ファイルのリクエスト（例: /index.css, /index.js, /gold.png）
     // 先頭の '/' を削除してファイル名を取得
@@ -118,13 +206,17 @@ server.on('error', (err) => {
 });
 
 // ============================================
-// ステップ3の検証方法:
+// ステップ4の検証方法:
 // 1. ターミナルで `node server.js` を実行
-// 2. ブラウザで http://localhost:3000 を開く
-// 3. index.htmlが表示され、CSSやJSも正しく読み込まれることを確認
-// 4. 直接アクセスして確認:
-//    - http://localhost:3000/index.css
-//    - http://localhost:3000/index.js
-//    - http://localhost:3000/gold.png
-// 5. ターミナルで各リクエストがログに表示されることを確認
+// 2. ターミナルに以下のように表示されることを確認:
+//    こんにちは、太郎さん！
+//    Hello, 花子!
+//    --- EventEmitterのデモ完了 ---
+// 3. サーバーが起動したら、ブラウザで http://localhost:3000 を開く
+// 4. 正常に動作することを確認
+//
+// 学習ポイント:
+// - EventEmitterは「イベントを発火する側」と「イベントを受け取る側」を分離できる
+// - 複数のリスナーを登録できる（1つのイベントで複数の処理を実行可能）
+// - 次のステップで、この仕組みを使って価格更新を通知します
 // ============================================
