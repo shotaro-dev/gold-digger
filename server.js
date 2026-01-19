@@ -317,25 +317,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/') {
     // ルートパス: index.htmlを配信
     await serveStaticFile('index.html', res);
-  } else if (pathname === '/api/price') {
-    // 金価格API: ポーリングで取得済みの価格を返す
-    const cachedPrice = priceEmitter.getCurrentPrice();
-    
-    if (cachedPrice !== null) {
-      // キャッシュされた価格を返す（API呼び出し不要）
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.end(JSON.stringify({ price: cachedPrice }));
-    } else {
-      // まだ価格が取得されていない場合のみAPIを呼ぶ
-      const { price, error } = await fetchGoldPrice();
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.end(JSON.stringify({ price, error }));
-    }
-  } else if (pathname === '/api/stream') {
+  }  else if (pathname === '/api/stream') {
     // SSEエンドポイント: リアルタイム価格更新を配信
     handleSSEConnection(req, res);
   } else if (pathname.startsWith('/')) {

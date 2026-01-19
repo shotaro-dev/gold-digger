@@ -103,6 +103,13 @@ function connectSSE() {
   // メッセージを受信したとき
   eventSource.addEventListener("message", (event) => {
     try {
+      // console.log(eventSource)
+      // console.log(eventSource.readyState)
+      // console.log(event)
+      // console.log("eventSource.readyState:", eventSource.readyState);
+      // console.log("EventSource.CONNECTING:", EventSource.CONNECTING);  // 0
+      // console.log("EventSource.OPEN:", EventSource.OPEN);              // 1
+      // console.log("EventSource.CLOSED:", EventSource.CLOSED);          // 2
       const data = JSON.parse(event.data);
       
       if (data.price !== undefined) {
