@@ -251,14 +251,26 @@ function handleSSEConnection(req, res) {
 
   // 価格更新イベントのリスナー
   const onPriceUpdate = (price) => {
-    const data = JSON.stringify({ price });
-    res.write(`data: ${data}\n\n`);
+    if (res.writableEnded || res.destroyed) return;
+    
+    try {
+      const data = JSON.stringify({ price });
+      res.write(`data: ${data}\n\n`);
+    } catch (error) {
+      console.error('価格送信エラー:', error);
+    }
   };
 
   // エラーイベントのリスナー
   const onPriceError = ({ error }) => {
-    const data = JSON.stringify({ error });
-    res.write(`data: ${data}\n\n`);
+    if (res.writableEnded || res.destroyed) return;
+    
+    try {
+      const data = JSON.stringify({ error });
+      res.write(`data: ${data}\n\n`);
+    } catch (error) {
+      console.error('エラー送信エラー:', error);
+    }
   };
 
   // イベントリスナーを登録
@@ -267,9 +279,17 @@ function handleSSEConnection(req, res) {
 
   // 定期的にpingを送信（接続が生きているか確認）
   const pingInterval = setInterval(() => {
-    if (!res.writableEnded) {
+    // 接続が終了または破棄されているかチェック
+    if (res.writableEnded || res.destroyed) {
+      clearInterval(pingInterval);
+      return;
+    }
+    
+    try {
       res.write(': ping\n\n');
-    } else {
+    } catch (error) {
+      // 書き込みエラーが発生したら、インターバルを停止
+      console.error('ping送信エラー:', error);
       clearInterval(pingInterval);
     }
   }, 30000); // 30秒ごと
