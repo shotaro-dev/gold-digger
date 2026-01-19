@@ -4,10 +4,11 @@
 // ステップ3: 簡単なルーティングを実装 ✅
 // ステップ4: EventEmitterの基本を理解 ✅
 // ステップ5: 外部APIから価格を取得 ✅
-// ステップ6: EventEmitterで価格更新を管理
+// ステップ6: EventEmitterで価格更新を管理 ✅
+// ステップ7: Server-Sent Events (SSE) エンドポイントを実装
 // ============================================
-// このステップでは、EventEmitterを継承したクラスで
-// 定期的に価格を取得し、更新時にイベントを発火します
+// このステップでは、SSEを使ってリアルタイムで
+// 価格更新をクライアントに配信します
 
 import http from 'node:http';
 import fs from 'node:fs/promises';
@@ -227,6 +228,65 @@ async function serveStaticFile(fileName, res) {
   }
 }
 
+/**
+ * Server-Sent Events (SSE) 接続を処理
+ * PriceEmitterの価格更新イベントをクライアントに配信
+ */
+function handleSSEConnection(req, res) {
+  // SSE用のヘッダーを設定
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  console.log('SSE接続が確立されました');
+
+  // 接続時に現在の価格を送信（あれば）
+  const currentPrice = priceEmitter.getCurrentPrice();
+  if (currentPrice !== null) {
+    const data = JSON.stringify({ price: currentPrice });
+    res.write(`data: ${data}\n\n`);
+  }
+
+  // 価格更新イベントのリスナー
+  const onPriceUpdate = (price) => {
+    const data = JSON.stringify({ price });
+    res.write(`data: ${data}\n\n`);
+  };
+
+  // エラーイベントのリスナー
+  const onPriceError = ({ error }) => {
+    const data = JSON.stringify({ error });
+    res.write(`data: ${data}\n\n`);
+  };
+
+  // イベントリスナーを登録
+  priceEmitter.on('priceUpdate', onPriceUpdate);
+  priceEmitter.on('priceError', onPriceError);
+
+  // 接続が切断されたときのクリーンアップ
+  req.on('close', () => {
+    priceEmitter.removeListener('priceUpdate', onPriceUpdate);
+    priceEmitter.removeListener('priceError', onPriceError);
+    console.log('SSE接続が切断されました');
+  });
+
+  // 定期的にpingを送信（接続が生きているか確認）
+  const pingInterval = setInterval(() => {
+    if (!res.writableEnded) {
+      res.write(': ping\n\n');
+    } else {
+      clearInterval(pingInterval);
+    }
+  }, 30000); // 30秒ごと
+
+  // 接続切断時にpingも停止
+  req.on('close', () => {
+    clearInterval(pingInterval);
+  });
+}
+
 const server = http.createServer(async (req, res) => {
   console.log(`リクエスト受信: ${req.method} ${req.url}`);
   
@@ -258,6 +318,9 @@ const server = http.createServer(async (req, res) => {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.end(JSON.stringify({ price, error }));
     }
+  } else if (pathname === '/api/stream') {
+    // SSEエンドポイント: リアルタイム価格更新を配信
+    handleSSEConnection(req, res);
   } else if (pathname.startsWith('/')) {
     // 静的ファイルのリクエスト（例: /index.css, /index.js, /gold.png）
     // 先頭の '/' を削除してファイル名を取得
@@ -316,20 +379,23 @@ process.on('SIGINT', () => {
 });
 
 // ============================================
-// ステップ6の検証方法:
+// ステップ7の検証方法:
 // 1. ターミナルで `node server.js` を実行
-// 2. サーバー起動後、価格ポーリングが開始されることを確認
-// 3. ターミナルに10秒ごとに価格が表示されることを確認:
-//    - 価格更新: $N/A → $2650.00
-//    - [イベント] 価格が更新されました: $2650.00
-//    - 価格は変更なし: $2650.00（価格が変わらない場合）
-// 4. ブラウザで http://localhost:3000/api/price を開く
-//    - 現在の価格がJSONで返されることを確認
-// 5. Ctrl+C でサーバーを停止すると、ポーリングも停止する
+// 2. ブラウザで http://localhost:3000/api/stream を開く
+//    - ストリーミングデータが表示されることを確認
+//    - 価格更新があると、新しいデータが送信される
+// 3. 開発者ツール（F12）のNetworkタブで確認:
+//    - /api/stream のリクエストが "EventStream" タイプ
+//    - 接続が維持されている（pending状態）
+// 4. ターミナルで "SSE接続が確立されました" が表示される
+// 5. 価格が更新されると、SSE経由でクライアントに送信される
+// 6. ブラウザタブを閉じると "SSE接続が切断されました" が表示される
 //
 // 学習ポイント:
-// - EventEmitterを継承したクラスで価格管理
-// - setInterval で定期的に価格を取得
-// - 価格が変更されたときだけ 'priceUpdate' イベントを発火
-// - 複数のリスナーが同じイベントを受け取れる（SSEで活用）
+// - Server-Sent Events (SSE) でサーバー→クライアントの一方向通信
+// - Content-Type: text/event-stream ヘッダーが必要
+// - データ形式: "data: {JSON}\n\n" の形式で送信
+// - EventEmitterのイベントをSSEクライアントに配信
+// - 接続切断時のクリーンアップ（removeListener）
+// - 定期的なpingで接続を維持
 // ============================================
