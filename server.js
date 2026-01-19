@@ -307,7 +307,74 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/') {
     // ルートパス: index.htmlを配信
     await serveStaticFile('index.html', res);
-  }  else if (pathname === '/api/stream') {
+  } else if (pathname === '/api/invest') {
+    // 投資情報を受け取るエンドポイント
+    if (req.method === 'POST') {
+      let body = '';
+      
+      req.on('data', (chunk) => {
+        body += chunk.toString();
+      });
+      
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { investmentAmount, pricePerOz } = data;
+          
+          // バリデーション
+          if (typeof investmentAmount !== 'number' || investmentAmount <= 0) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'Invalid investment amount' }));
+            return;
+          }
+          
+          if (typeof pricePerOz !== 'number' || pricePerOz <= 0) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'Invalid price per oz' }));
+            return;
+          }
+          
+          // 購入できた金の量を計算（troy oz）
+          const goldAmount = investmentAmount / pricePerOz;
+          
+          // 現在の日付を取得
+          const now = new Date();
+          const dateString = now.toISOString();
+          
+          // ログに出力
+          console.log('='.repeat(60));
+          console.log('金の購入が記録されました:');
+          console.log(`  日付: ${dateString}`);
+          console.log(`  払った金額: $${investmentAmount.toFixed(2)}`);
+          console.log(`  購入できた金の量: ${goldAmount.toFixed(6)} oz (troy ounce)`);
+          console.log(`  購入価格: $${pricePerOz.toFixed(2)} / oz`);
+          console.log('='.repeat(60));
+          
+          // 成功レスポンス
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ 
+            success: true,
+            date: dateString,
+            investmentAmount,
+            goldAmount,
+            pricePerOz
+          }));
+        } catch (error) {
+          console.error('投資情報の処理エラー:', error);
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Invalid request body' }));
+        }
+      });
+    } else {
+      res.statusCode = 405;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+    }
+  } else if (pathname === '/api/stream') {
     // SSEエンドポイント: リアルタイム価格更新を配信
     handleSSEConnection(req, res);
   } else if (pathname.startsWith('/')) {

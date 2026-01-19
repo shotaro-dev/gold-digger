@@ -3,6 +3,7 @@ const dialog = document.getElementById("dialog");
 const closeDialogBtn = document.getElementById("close-dialog-btn");
 const priceDisplay = document.getElementById("price-display");
 const connectionStatus = document.getElementById("connection-status");
+const investmentSummary = document.getElementById("investment-summary");
 
 
 
@@ -13,8 +14,49 @@ if (closeDialogBtn) {
   });
 }
 
-investBtn.addEventListener("click", (e) => {
+investBtn.addEventListener("click", async (e) => {
   e.preventDefault();
+  
+  // 投資金額を取得
+  const investmentAmountInput = document.getElementById("investment-amount");
+  const investmentAmount = parseFloat(investmentAmountInput.value);
+  
+  // バリデーション
+  if (!investmentAmount || investmentAmount <= 0) {
+    alert("有効な投資金額を入力してください");
+    return;
+  }
+  
+  // 現在の価格を取得
+  if (currentPrice === null || isNaN(currentPrice)) {
+    alert("価格情報が取得できていません。しばらく待ってから再度お試しください。");
+    return;
+  }
+  
+  // サーバーに投資情報を送信
+  try {
+    const response = await fetch("/api/invest", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        investmentAmount: investmentAmount,
+        pricePerOz: currentPrice,
+      }),
+    });
+    
+    if (!response.ok) {
+      console.error("投資情報の送信に失敗しました");
+      return
+    }
+
+    const data = await response.json();
+    investmentSummary.textContent = `You just bought ${data.goldAmount.toFixed(6)} ounces (ozt) for $${data.investmentAmount.toFixed(2)}. \n You will receive documentation shortly.`;
+  } catch (error) {
+    console.error("投資情報の送信エラー:", error);
+  }
+  
   dialog.showModal();
 });
 
@@ -37,6 +79,7 @@ dialog.addEventListener("click", (e) => {
 // ============================================
 
 let eventSource = null;
+let currentPrice = null; // 現在の価格を保持
 
 /**
  * 価格を表示に更新
@@ -45,6 +88,7 @@ function updatePrice(price) {
   if (!priceDisplay) return;
   
   if (typeof price === "number" && !Number.isNaN(price)) {
+    currentPrice = price; // 現在の価格を保存
     priceDisplay.textContent = price.toFixed(2);
     
     // 価格更新時のアニメーション効果
