@@ -2,10 +2,12 @@
 // ステップ1: 最小限のHTTPサーバー ✅
 // ステップ2: fs/pathモジュールで静的ファイル配信 ✅
 // ステップ3: 簡単なルーティングを実装 ✅
-// ステップ4: EventEmitterの基本を理解
+// ステップ4: EventEmitterの基本を理解 ✅
+// ステップ5: 外部APIから価格を取得 ✅
+// ステップ6: EventEmitterで価格更新を管理
 // ============================================
-// このステップでは、EventEmitterを使って
-// イベント駆動型のプログラミングを学びます
+// このステップでは、EventEmitterを継承したクラスで
+// 定期的に価格を取得し、更新時にイベントを発火します
 
 import http from 'node:http';
 import fs from 'node:fs/promises';
@@ -47,6 +49,108 @@ myEmitter.on('greet', (name) => {
 myEmitter.emit('greet', '花子');
 
 console.log('--- EventEmitterのデモ完了 ---\n');
+
+// ============================================
+// PriceEmitterクラス: EventEmitterを継承
+// ============================================
+// 定期的に金価格を取得し、更新時にイベントを発火します
+
+class PriceEmitter extends EventEmitter {
+  constructor() {
+    super();
+    this.currentPrice = null;
+    this.intervalId = null;
+    this.isPolling = false;
+  }
+
+  /**
+   * 価格ポーリングを開始（10秒ごとに取得）
+   */
+  startPolling() {
+    if (this.isPolling) {
+      console.log('価格ポーリングは既に開始されています');
+      return;
+    }
+
+    this.isPolling = true;
+    console.log('価格ポーリングを開始します（10秒ごと）');
+
+    // 即座に1回実行
+    this.fetchAndEmitPrice();
+
+    // 10秒ごとに価格を取得
+    this.intervalId = setInterval(() => {
+      this.fetchAndEmitPrice();
+    }, 10000); // 10秒 = 10000ミリ秒
+  }
+
+  /**
+   * 価格を取得して、更新があればイベントを発火
+   */
+  async fetchAndEmitPrice() {
+    try {
+      const { price, error } = await fetchGoldPrice();
+
+      if (error) {
+        console.error(`価格取得エラー: ${error}`);
+        this.emit('priceError', { error });
+        return;
+      }
+
+      if (price === null) {
+        console.warn('価格が null です');
+        return;
+      }
+
+      // 価格が変更された場合のみイベントを発火
+      if (this.currentPrice !== price) {
+        const previousPrice = this.currentPrice;
+        this.currentPrice = price;
+        
+        console.log(`価格更新: $${previousPrice?.toFixed(2) ?? 'N/A'} → $${price.toFixed(2)}`);
+        this.emit('priceUpdate', price);
+      } else {
+        console.log(`価格は変更なし: $${price.toFixed(2)}`);
+      }
+    } catch (error) {
+      console.error(`価格取得中の例外: ${error.message}`);
+      this.emit('priceError', { error: error.message });
+    }
+  }
+
+  /**
+   * 現在の価格を取得
+   * @returns {number | null}
+   */
+  getCurrentPrice() {
+    return this.currentPrice;
+  }
+
+  /**
+   * ポーリングを停止
+   */
+  stopPolling() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+      this.isPolling = false;
+      console.log('価格ポーリングを停止しました');
+    }
+  }
+}
+
+// PriceEmitterのインスタンスを作成
+const priceEmitter = new PriceEmitter();
+
+// 価格更新イベントのリスナー（デモ用）
+priceEmitter.on('priceUpdate', (price) => {
+  console.log(`[イベント] 価格が更新されました: $${price.toFixed(2)}`);
+});
+
+// エラーイベントのリスナー（デモ用）
+priceEmitter.on('priceError', ({ error }) => {
+  console.log(`[イベント] 価格取得エラー: ${error}`);
+});
 
 // Content-Typeマッピング
 const CONTENT_TYPES = {
@@ -168,7 +272,10 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`サーバーが起動しました: http://localhost:${PORT}`);
-  console.log('ブラウザでアクセスして確認してください！');
+  console.log('ブラウザでアクセスして確認してください！\n');
+  
+  // 価格ポーリングを開始
+  priceEmitter.startPolling();
 });
 
 
@@ -187,18 +294,31 @@ server.on('error', (err) => {
   }
 });
 
+// プロセス終了時のクリーンアップ
+process.on('SIGINT', () => {
+  console.log('\nサーバーを終了しています...');
+  priceEmitter.stopPolling();
+  server.close(() => {
+    console.log('サーバーを終了しました');
+    process.exit(0);
+  });
+});
+
 // ============================================
-// ステップ4の検証方法:
+// ステップ6の検証方法:
 // 1. ターミナルで `node server.js` を実行
-// 2. ターミナルに以下のように表示されることを確認:
-//    こんにちは、太郎さん！
-//    Hello, 花子!
-//    --- EventEmitterのデモ完了 ---
-// 3. サーバーが起動したら、ブラウザで http://localhost:3000 を開く
-// 4. 正常に動作することを確認
+// 2. サーバー起動後、価格ポーリングが開始されることを確認
+// 3. ターミナルに10秒ごとに価格が表示されることを確認:
+//    - 価格更新: $N/A → $2650.00
+//    - [イベント] 価格が更新されました: $2650.00
+//    - 価格は変更なし: $2650.00（価格が変わらない場合）
+// 4. ブラウザで http://localhost:3000/api/price を開く
+//    - 現在の価格がJSONで返されることを確認
+// 5. Ctrl+C でサーバーを停止すると、ポーリングも停止する
 //
 // 学習ポイント:
-// - EventEmitterは「イベントを発火する側」と「イベントを受け取る側」を分離できる
-// - 複数のリスナーを登録できる（1つのイベントで複数の処理を実行可能）
-// - 次のステップで、この仕組みを使って価格更新を通知します
+// - EventEmitterを継承したクラスで価格管理
+// - setInterval で定期的に価格を取得
+// - 価格が変更されたときだけ 'priceUpdate' イベントを発火
+// - 複数のリスナーが同じイベントを受け取れる（SSEで活用）
 // ============================================
