@@ -143,16 +143,6 @@ class PriceEmitter extends EventEmitter {
 // PriceEmitterのインスタンスを作成
 const priceEmitter = new PriceEmitter();
 
-// 価格更新イベントのリスナー（デモ用）
-priceEmitter.on('priceUpdate', (price) => {
-  console.log(`[イベント] 価格が更新されました: $${price.toFixed(2)}`);
-});
-
-// エラーイベントのリスナー（デモ用）
-priceEmitter.on('priceError', ({ error }) => {
-  console.log(`[イベント] 価格取得エラー: ${error}`);
-});
-
 // Content-Typeマッピング
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
