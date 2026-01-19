@@ -265,13 +265,6 @@ function handleSSEConnection(req, res) {
   priceEmitter.on('priceUpdate', onPriceUpdate);
   priceEmitter.on('priceError', onPriceError);
 
-  // 接続が切断されたときのクリーンアップ
-  req.on('close', () => {
-    priceEmitter.removeListener('priceUpdate', onPriceUpdate);
-    priceEmitter.removeListener('priceError', onPriceError);
-    console.log('SSE接続が切断されました');
-  });
-
   // 定期的にpingを送信（接続が生きているか確認）
   const pingInterval = setInterval(() => {
     if (!res.writableEnded) {
@@ -281,10 +274,14 @@ function handleSSEConnection(req, res) {
     }
   }, 30000); // 30秒ごと
 
-  // 接続切断時にpingも停止
+  // 接続が切断されたときのクリーンアップ
   req.on('close', () => {
+    priceEmitter.removeListener('priceUpdate', onPriceUpdate);
+    priceEmitter.removeListener('priceError', onPriceError);
     clearInterval(pingInterval);
+    console.log('SSE接続が切断されました');
   });
+
 }
 
 const server = http.createServer(async (req, res) => {
