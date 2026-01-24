@@ -14,9 +14,24 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
+import { PGlite } from '@electric-sql/pglite';
 
 const PORT = 3000;
 const __dirname = import.meta.dirname;
+
+// データベースの初期化
+console.log('データベースを初期化中...');
+const db = new PGlite('./gold-db');
+await db.exec(`
+  CREATE TABLE IF NOT EXISTS investments (
+    id SERIAL PRIMARY KEY,
+    amount NUMERIC NOT NULL,
+    gold_amount NUMERIC NOT NULL,
+    price_per_oz NUMERIC NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+console.log('データベースとテーブルの準備が完了しました');
 
 // ============================================
 // EventEmitterの基本例
@@ -338,6 +353,13 @@ const server = http.createServer(async (req, res) => {
           
           // 購入できた金の量を計算（troy oz）
           const goldAmount = investmentAmount / pricePerOz;
+
+          // データベースに保存
+          await db.query(
+            'INSERT INTO investments (amount, gold_amount, price_per_oz) VALUES ($1, $2, $3)',
+            [investmentAmount, goldAmount, pricePerOz]
+          );
+          console.log('データベースに購入履歴を保存しました');
           
           // 現在の日付を取得
           const now = new Date();
@@ -369,6 +391,25 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: 'Invalid request body' }));
         }
       });
+    } else {
+      res.statusCode = 405;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+    }
+  } else if (pathname === '/api/investments') {
+    // 全購入履歴を取得するエンドポイント（検証用）
+    if (req.method === 'GET') {
+      try {
+        const result = await db.query('SELECT * FROM investments ORDER BY created_at DESC');
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(result.rows));
+      } catch (error) {
+        console.error('データ取得エラー:', error);
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Internal Server Error' }));
+      }
     } else {
       res.statusCode = 405;
       res.setHeader('Content-Type', 'application/json');
