@@ -51,6 +51,33 @@
           Invest Now!
         </button>
       </form>
+
+      <!-- ポートフォリオセクション -->
+      <div id="portfolio-section" style="margin: 20px auto; max-width: 320px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 20px;">
+        <h3 style="margin-top: 0; color: #eee; font-family: 'Saira Stencil One', cursive;">My Gold Portfolio</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: left; font-size: 0.9em;">
+          <div>
+            <div style="color: #aaa; font-size: 0.8em;">Total Invested</div>
+            <div id="pf-total-usd" style="font-size: 1.1em; font-weight: bold;">$0.00</div>
+          </div>
+          <div>
+            <div style="color: #aaa; font-size: 0.8em;">Gold Owned</div>
+            <div id="pf-total-gold" style="font-size: 1.1em; font-weight: bold; color: #ffd700;">0.0000 oz</div>
+          </div>
+          <div>
+            <div style="color: #aaa; font-size: 0.8em;">Avg. Buy Price</div>
+            <div id="pf-avg-price">$0.00 / oz</div>
+          </div>
+          <div>
+            <div style="color: #aaa; font-size: 0.8em;">Current Value</div>
+            <div id="pf-current-value">$0.00</div>
+          </div>
+        </div>
+        <div id="pf-profit-loss" style="margin-top: 15px; font-weight: bold; font-size: 1.2em; text-align: center;">
+          --
+        </div>
+      </div>
+
       <!-- This dialog opens after a successful purchase -->
       <dialog
         class="outputs"

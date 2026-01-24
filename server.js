@@ -25,12 +25,20 @@ const db = new PGlite('./gold-db');
 await db.exec(`
   CREATE TABLE IF NOT EXISTS investments (
     id SERIAL PRIMARY KEY,
+    client_id TEXT,
     amount NUMERIC NOT NULL,
     gold_amount NUMERIC NOT NULL,
     price_per_oz NUMERIC NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 `);
+// 既存のテーブルにclient_idがない場合の対応（マイグレーション）
+try {
+  await db.exec(`ALTER TABLE investments ADD COLUMN IF NOT EXISTS client_id TEXT;`);
+} catch (e) {
+  // エラーは無視（すでに存在するなどの場合）
+  console.log('マイグレーションスキップ:', e.message);
+}
 console.log('データベースとテーブルの準備が完了しました');
 
 // ============================================
@@ -317,12 +325,11 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   console.log('req.url:', req.url);
   const pathname = url.pathname;
-  
   // ルーティング処理
   if (pathname === '/') {
     // ルートパス: index.htmlを配信
     await serveStaticFile('index.html', res);
-  } else if (pathname === '/api/invest') {
+      } else if (pathname === '/api/invest') {
     // 投資情報を受け取るエンドポイント
     if (req.method === 'POST') {
       let body = '';
@@ -334,7 +341,7 @@ const server = http.createServer(async (req, res) => {
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
-          const { investmentAmount, pricePerOz } = data;
+          const { investmentAmount, pricePerOz, clientId } = data;
           
           // バリデーション
           if (typeof investmentAmount !== 'number' || investmentAmount <= 0) {
@@ -350,14 +357,17 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ error: 'Invalid price per oz' }));
             return;
           }
+
+          // clientIdのバリデーション（簡易）
+          const validClientId = (typeof clientId === 'string' && clientId.length > 0) ? clientId : 'anonymous';
           
           // 購入できた金の量を計算（troy oz）
           const goldAmount = investmentAmount / pricePerOz;
 
           // データベースに保存
           await db.query(
-            'INSERT INTO investments (amount, gold_amount, price_per_oz) VALUES ($1, $2, $3)',
-            [investmentAmount, goldAmount, pricePerOz]
+            'INSERT INTO investments (amount, gold_amount, price_per_oz, client_id) VALUES ($1, $2, $3, $4)',
+            [investmentAmount, goldAmount, pricePerOz, validClientId]
           );
           console.log('データベースに購入履歴を保存しました');
           
@@ -394,6 +404,57 @@ const server = http.createServer(async (req, res) => {
     } else {
       res.statusCode = 405;
       res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+    }
+  } else if (pathname === '/api/portfolio') {
+    // ポートフォリオ集計情報を取得するエンドポイント
+    if (req.method === 'GET') {
+      const clientId = url.searchParams.get('clientId');
+      
+      if (!clientId) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Client ID is required' }));
+        return;
+      }
+
+      try {
+        // SQL集計クエリ: 総投資額、総金保有量
+        // COALESCE(..., 0) は NULL の場合に 0 を返す関数
+        const result = await db.query(`
+          SELECT 
+            COALESCE(SUM(amount), 0) as total_invested_usd,
+            COALESCE(SUM(gold_amount), 0) as total_gold_oz,
+            COUNT(*) as transaction_count
+          FROM investments 
+          WHERE client_id = $1
+        `, [clientId]);
+        
+        const row = result.rows[0];
+        // console.log(result);
+        
+        // 数値型に変換してレスポンス（PGlite/PostgresのNUMERICは文字列で返ることがあるため）
+        const portfolio = {
+          totalInvestedUSD: Number(row.total_invested_usd),
+          totalGoldOz: Number(row.total_gold_oz),
+          transactionCount: Number(row.transaction_count),
+          // 平均取得単価 = 総投資額 / 総保有量
+          averagePrice: Number(row.total_gold_oz) > 0 
+            ? Number(row.total_invested_usd) / Number(row.total_gold_oz) 
+            : 0
+        };
+
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(portfolio));
+      } catch (error) {
+        console.error('ポートフォリオ取得エラー:', error);
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Internal Server Error' }));
+      }
+    } else {
+      res.statusCode = 405;
       res.end(JSON.stringify({ error: 'Method not allowed' }));
     }
   } else if (pathname === '/api/investments') {
