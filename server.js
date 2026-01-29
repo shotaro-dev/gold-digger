@@ -34,6 +34,7 @@
 
 import express from 'express';
 import path from 'node:path';
+import fs from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { PGlite } from '@electric-sql/pglite';
 
@@ -391,6 +392,46 @@ apiRouter.get('/stream', (req, res) => {
 // 例: apiRouter.post('/invest', ...) → /api/invest でアクセス可能
 app.use('/api', apiRouter);
 
+// 404 ハンドラ（存在しないルートへの対応）
+app.use((req, res, next) => {
+  // public/404.html が存在すればそれを返す。なければ簡易テキストを返す
+  const notFoundPage = path.join(__dirname, 'public', '404.html');
+  res.status(404);
+  if (req.accepts('html')) {
+    if (fs.existsSync(notFoundPage)) {
+      return res.sendFile(notFoundPage);
+    } else {
+      return res.type('txt').send('404 Not Found');
+    }
+  }
+  if (req.accepts('json')) {
+    return res.json({ error: 'Not Found' });
+  }
+  return res.type('txt').send('Not Found');
+});
+
+// エラーハンドリングミドルウェア
+// 4引数を受け取ることで Express がエラーハンドラとして認識します
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err && err.stack ? err.stack : err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  const status = err && err.status ? err.status : 500;
+  res.status(status);
+  if (req.accepts('json')) {
+    return res.json({ error: err && err.message ? err.message : 'Internal Server Error' });
+  }
+  if (req.accepts('html')) {
+    const errorPage = path.join(__dirname, 'public', '500.html');
+    if (fs.existsSync(errorPage)) {
+      return res.sendFile(errorPage);
+    }
+    return res.type('txt').send('Internal Server Error');
+  }
+  return res.type('txt').send(err && err.message ? err.message : 'Internal Server Error');
+});
+
 // サーバーを起動
 const server = app.listen(PORT, () => {
   console.log(`サーバーが http://localhost:${PORT} で起動しました`);
@@ -419,4 +460,28 @@ process.on('SIGINT', () => {
     console.log('サーバーを停止しました');
     process.exit(0);
   });
+});
+
+// 予期しない例外や未処理のPromise拒否に対するフェイルセーフ処理
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err && err.stack ? err.stack : err);
+  try {
+    priceEmitter.stop();
+    server.close(() => {
+      console.log('サーバーを停止しました（uncaughtExceptionハンドラ）');
+      process.exit(1);
+    });
+    // タイムアウトしてもプロセスを終了する
+    setTimeout(() => process.exit(1), 5000).unref();
+  } catch (e) {
+    console.error('uncaughtException処理中のエラー:', e);
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // サーバーを停止して価格ポーリングをクリア
+  priceEmitter.stop();
+  // すぐにプロセスを終了する代わりに、状況に応じて再起動する戦略を採ることもできます
 });
