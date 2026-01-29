@@ -192,6 +192,21 @@ apiRouter.get('/portfolio', async (req, res) => {
   }
 });
 
+// GET /api/investments - 全投資レコードを取得（clientId 指定なし）
+apiRouter.get('/investments', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, client_id, investment_amount, price_per_oz, gold_amount, created_at
+       FROM investments
+       ORDER BY created_at DESC`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('投資一覧取得エラー:', error);
+    res.status(500).json({ error: '投資データの取得に失敗しました' });
+  }
+});
+
 // ============================================
 // ステップ6: Server-Sent Events (SSE) の実装 ✅
 // ============================================
