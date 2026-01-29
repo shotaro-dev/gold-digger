@@ -15,6 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@electric-sql/pglite": "^0.3.15"
+    "@electric-sql/pglite": "^0.3.15",
+    "express": "^4.21.0"
   }
 }
