@@ -25,8 +25,16 @@
 // Expressのexpress.json()ミドルウェアでリクエストボディをパース
 // データベース接続と保存処理
 
+// ============================================
+// ステップ5: APIエンドポイントの実装（ポートフォリオ取得） ✅
+// ============================================
+// apiRouter.get('/portfolio', ...)でGETエンドポイントを実装
+// req.queryでクエリパラメータ（clientId）を取得
+// データベースからの集計クエリ実行
+
 import express from 'express';
 import path from 'node:path';
+import { EventEmitter } from 'node:events';
 import { PGlite } from '@electric-sql/pglite';
 
 const PORT = 3000;
@@ -125,6 +133,119 @@ apiRouter.post('/invest', async (req, res) => {
       error: '投資情報の保存に失敗しました' 
     });
   }
+});
+
+// GET /api/portfolio エンドポイントの実装
+// クライアントIDに基づいてポートフォリオ情報を取得します
+apiRouter.get('/portfolio', async (req, res) => {
+  try {
+    // req.queryでクエリパラメータを取得
+    // Expressでは、URLのクエリパラメータ（?clientId=xxx）が
+    // 自動的にreq.queryオブジェクトにパースされます
+    const { clientId } = req.query;
+
+    // バリデーション: clientIdが必須
+    if (!clientId) {
+      return res.status(400).json({ 
+        error: 'clientId は必須です' 
+      });
+    }
+
+    // データベースから該当クライアントの投資情報を集計
+    // SUM()関数で合計を計算し、AVG()関数で平均価格を計算します
+    const result = await db.query(
+      `SELECT 
+         COALESCE(SUM(investmentAmount), 0) as totalInvestedUSD,
+         COALESCE(SUM(goldAmount), 0) as totalGoldOz,
+         CASE 
+           WHEN SUM(goldAmount) > 0 
+           THEN SUM(investmentAmount) / SUM(goldAmount)
+           ELSE 0 
+         END as averagePrice
+       FROM investments
+       WHERE clientId = $1`,
+      [clientId]
+    );
+
+    // 結果を取得（集計クエリなので1行のみ）
+    const portfolio = result.rows[0];
+
+    // 数値を適切な型に変換
+    const totalInvestedUSD = parseFloat(portfolio.totalinvestedusd) || 0;
+    const totalGoldOz = parseFloat(portfolio.totalgoldoz) || 0;
+    const averagePrice = parseFloat(portfolio.averageprice) || 0;
+
+    // ポートフォリオ情報をJSON形式で返す
+    // フロントエンドで使用するため、キャメルケースで返します
+    res.json({
+      totalInvestedUSD: totalInvestedUSD,
+      totalGoldOz: totalGoldOz,
+      averagePrice: averagePrice
+    });
+
+  } catch (error) {
+    console.error('ポートフォリオ取得エラー:', error);
+    res.status(500).json({ 
+      error: 'ポートフォリオ情報の取得に失敗しました' 
+    });
+  }
+});
+
+// ============================================
+// ステップ6: Server-Sent Events (SSE) の実装 ✅
+// ============================================
+// apiRouter.get('/stream', ...)でSSEエンドポイントを実装
+// ExpressでSSEを実装する方法（res.write()を使用）
+// EventEmitterとの連携
+
+// 価格更新イベントを発火するためのEventEmitterインスタンスを作成
+// このEventEmitterは、価格が更新されたときに'priceUpdate'イベントを発火します
+// ステップ7でPriceEmitterクラスが実装されると、このインスタンスが使用されます
+const priceEmitter = new EventEmitter();
+
+// GET /api/stream エンドポイントの実装
+// Server-Sent Events (SSE) を使用してリアルタイムで価格を配信します
+apiRouter.get('/stream', (req, res) => {
+  // SSE用のHTTPヘッダーを設定
+  // Content-Type: text/event-stream はSSEの標準的なMIMEタイプです
+  // Cache-Control: no-cache は、プロキシがレスポンスをキャッシュしないようにします
+  // Connection: keep-alive は、接続を維持するために必要です
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  // クライアントに接続確認メッセージを送信
+  // SSEでは、各メッセージは "data: " で始まり、2つの改行で終わる必要があります
+  res.write(': connected\n\n');
+
+  // 価格更新イベントのリスナー関数を定義
+  // priceEmitterが'priceUpdate'イベントを発火したときに実行されます
+  const sendPriceUpdate = (price) => {
+    // SSEメッセージの形式: "data: {JSONデータ}\n\n"
+    // フロントエンドは、このJSONデータをパースして価格を取得します
+    res.write(`data: ${JSON.stringify({ price })}\n\n`);
+  };
+
+  // エラーイベントのリスナー関数を定義
+  // 価格取得時にエラーが発生した場合に実行されます
+  const sendError = (error) => {
+    res.write(`data: ${JSON.stringify({ error: error.message || String(error) })}\n\n`);
+  };
+
+  // EventEmitterにイベントリスナーを登録
+  // 'priceUpdate'イベントが発火されたときにsendPriceUpdate関数が実行されます
+  priceEmitter.on('priceUpdate', sendPriceUpdate);
+  priceEmitter.on('error', sendError);
+
+  // クライアントが接続を切断したときの処理
+  // Expressでは、reqが閉じられたときに'close'イベントが発火されます
+  req.on('close', () => {
+    // イベントリスナーを削除してメモリリークを防ぎます
+    priceEmitter.removeListener('priceUpdate', sendPriceUpdate);
+    priceEmitter.removeListener('error', sendError);
+    console.log('SSE接続が閉じられました');
+  });
 });
 
 // ルーターをマウント
