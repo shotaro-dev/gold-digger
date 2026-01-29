@@ -198,10 +198,147 @@ apiRouter.get('/portfolio', async (req, res) => {
 // ExpressでSSEを実装する方法（res.write()を使用）
 // EventEmitterとの連携
 
-// 価格更新イベントを発火するためのEventEmitterインスタンスを作成
-// このEventEmitterは、価格が更新されたときに'priceUpdate'イベントを発火します
-// ステップ7でPriceEmitterクラスが実装されると、このインスタンスが使用されます
-const priceEmitter = new EventEmitter();
+// ============================================
+// ステップ7: PriceEmitterクラスと価格取得機能の統合 ✅
+// ============================================
+// PriceEmitterクラスの実装（既存コードをExpress版に適応）
+// 外部API（Gold-API.com）からの価格取得
+// 価格ポーリングの開始と停止
+
+/**
+ * PriceEmitterクラス
+ * EventEmitterを継承し、外部APIから金価格を定期的に取得してイベントを発火します
+ */
+class PriceEmitter extends EventEmitter {
+  constructor() {
+    super();
+    // ポーリング間隔（ミリ秒）
+    // 10秒ごとに価格を取得します
+    this.pollInterval = 10000; // 10秒
+    // ポーリングタイマーのIDを保持
+    // clearInterval()でタイマーを停止するために使用します
+    this.pollTimer = null;
+    // 現在の価格を保持
+    this.currentPrice = null;
+    // Gold-API.comのエンドポイント
+    // 無料でAPIキー不要の金価格APIです
+    // XAUは金のシンボル、USDは通貨です
+    this.apiUrl = 'https://api.gold-api.com/price/XAU';
+  }
+
+  /**
+   * 外部APIから金価格を取得
+   * @returns {Promise<number>} 金価格（USD/oz）
+   */
+  async fetchPrice() {
+    try {
+      // fetch APIを使用して外部APIから価格を取得
+      // Gold-API.comは無料でAPIキー不要です
+      const response = await fetch(this.apiUrl);
+
+      // HTTPエラーステータスのチェック
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // JSONレスポンスをパース
+      const data = await response.json();
+
+      // APIレスポンスの構造に応じて価格を取得
+      // Gold-API.comのレスポンス形式は様々な可能性があります：
+      // - { price: 2650.50, currency: "USD", ... }
+      // - { price_per_ounce: 2650.50, ... }
+      // - { value: 2650.50, ... }
+      // - { data: { price: 2650.50 }, ... }
+      // 実際のAPIレスポンスに合わせて調整します
+      const price = parseFloat(
+        data.price
+
+      );
+
+      // 価格が有効な数値かチェック
+      if (isNaN(price) || price <= 0) {
+        throw new Error('無効な価格データが返されました');
+      }
+
+      return price;
+    } catch (error) {
+      // エラーを再スローして、呼び出し元で処理できるようにします
+      throw new Error(`価格取得エラー: ${error.message}`);
+    }
+  }
+
+  /**
+   * 価格を取得してイベントを発火
+   * このメソッドは、fetchPrice()を呼び出し、成功した場合は'priceUpdate'イベントを発火します
+   * エラーが発生した場合は'error'イベントを発火します
+   */
+  async updatePrice() {
+    try {
+      // 外部APIから価格を取得
+      const price = await this.fetchPrice();
+
+      // 価格が変更された場合のみイベントを発火（オプション）
+      // この実装では、毎回イベントを発火します
+      this.currentPrice = price;
+
+      // 'priceUpdate'イベントを発火
+      // このイベントは、SSEエンドポイントでリスニングされ、
+      // 接続されているクライアントに価格を配信します
+      this.emit('priceUpdate', price);
+
+      // コンソールにログを出力（検証用）
+      console.log(`[${new Date().toLocaleTimeString()}] 金価格を更新しました: $${price.toFixed(2)}/oz`);
+    } catch (error) {
+      // エラーイベントを発火
+      // SSEエンドポイントでリスニングされ、クライアントにエラーを通知します
+      this.emit('error', error);
+      console.error(`[${new Date().toLocaleTimeString()}] 価格取得エラー:`, error.message);
+    }
+  }
+
+  /**
+   * 価格ポーリングを開始
+   * setInterval()を使用して、定期的に価格を取得します
+   */
+  start() {
+    // 既にポーリングが開始されている場合は何もしない
+    if (this.pollTimer !== null) {
+      console.log('価格ポーリングは既に開始されています');
+      return;
+    }
+
+    console.log('価格ポーリングを開始します（10秒間隔）');
+
+    // 即座に1回価格を取得（初回）
+    this.updatePrice();
+
+    // その後、指定された間隔で価格を取得
+    // setInterval()は、指定された間隔（ミリ秒）ごとにコールバック関数を実行します
+    this.pollTimer = setInterval(() => {
+      this.updatePrice();
+    }, this.pollInterval);
+  }
+
+  /**
+   * 価格ポーリングを停止
+   * clearInterval()を使用してタイマーをクリアします
+   * プロセス終了時やサーバー停止時に呼び出されます
+   */
+  stop() {
+    if (this.pollTimer !== null) {
+      // タイマーをクリアしてポーリングを停止
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+      console.log('価格ポーリングを停止しました');
+    }
+  }
+}
+
+// PriceEmitterインスタンスを作成
+// このインスタンスは、価格更新イベントを発火し、
+// SSEエンドポイントでリスニングされます
+const priceEmitter = new PriceEmitter();
 
 // GET /api/stream エンドポイントの実装
 // Server-Sent Events (SSE) を使用してリアルタイムで価格を配信します
@@ -254,6 +391,32 @@ apiRouter.get('/stream', (req, res) => {
 // 例: apiRouter.post('/invest', ...) → /api/invest でアクセス可能
 app.use('/api', apiRouter);
 
-app.listen(PORT, () => {
+// サーバーを起動
+const server = app.listen(PORT, () => {
   console.log(`サーバーが http://localhost:${PORT} で起動しました`);
+  
+  // サーバー起動後、価格ポーリングを開始
+  // これにより、サーバーが起動すると同時に価格の取得が開始されます
+  priceEmitter.start();
+});
+
+// プロセス終了時のクリーンアップ処理
+// サーバーが停止される際に、価格ポーリングも停止します
+// これにより、メモリリークやバックグラウンド処理の残存を防ぎます
+process.on('SIGTERM', () => {
+  console.log('SIGTERMシグナルを受信しました。サーバーを停止します...');
+  priceEmitter.stop();
+  server.close(() => {
+    console.log('サーバーを停止しました');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('\nSIGINTシグナルを受信しました（Ctrl+C）。サーバーを停止します...');
+  priceEmitter.stop();
+  server.close(() => {
+    console.log('サーバーを停止しました');
+    process.exit(0);
+  });
 });
