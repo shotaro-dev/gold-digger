@@ -71,11 +71,11 @@ await db.waitReady;
 await db.exec(`
   CREATE TABLE IF NOT EXISTS investments (
     id SERIAL PRIMARY KEY,
-    clientId TEXT NOT NULL,
-    investmentAmount DECIMAL(10, 2) NOT NULL,
-    pricePerOz DECIMAL(10, 2) NOT NULL,
-    goldAmount DECIMAL(10, 6) NOT NULL,
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    client_id TEXT NOT NULL,
+    investment_amount DECIMAL(10, 2) NOT NULL,
+    price_per_oz DECIMAL(10, 2) NOT NULL,
+    gold_amount DECIMAL(10, 6) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )
 `);
 
@@ -112,9 +112,9 @@ apiRouter.post('/invest', async (req, res) => {
     // 購入できる金の量を計算
     const goldAmount = amount / price;
 
-    // データベースに投資情報を保存
+    // データベースに投資情報を保存（snake_case カラム名）
     const result = await db.query(
-      `INSERT INTO investments (clientId, investmentAmount, pricePerOz, goldAmount)
+      `INSERT INTO investments (client_id, investment_amount, price_per_oz, gold_amount)
        VALUES ($1, $2, $3, $4)
        RETURNING id`,
       [clientId, amount, price, goldAmount]
@@ -156,15 +156,15 @@ apiRouter.get('/portfolio', async (req, res) => {
     // SUM()関数で合計を計算し、AVG()関数で平均価格を計算します
     const result = await db.query(
       `SELECT 
-         COALESCE(SUM(investmentAmount), 0) as totalInvestedUSD,
-         COALESCE(SUM(goldAmount), 0) as totalGoldOz,
+         COALESCE(SUM(investment_amount), 0) as totalInvestedUSD,
+         COALESCE(SUM(gold_amount), 0) as totalGoldOz,
          CASE 
-           WHEN SUM(goldAmount) > 0 
-           THEN SUM(investmentAmount) / SUM(goldAmount)
+           WHEN SUM(gold_amount) > 0 
+           THEN SUM(investment_amount) / SUM(gold_amount)
            ELSE 0 
          END as averagePrice
        FROM investments
-       WHERE clientId = $1`,
+       WHERE client_id = $1`,
       [clientId]
     );
 
