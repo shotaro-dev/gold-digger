@@ -4,9 +4,10 @@
 export function makeCreateInvestment(db) {
   return async function createInvestment(req, res, next) {
     try {
-      const { investmentAmount, pricePerOz, clientId } = req.body;
-      if (!investmentAmount || !pricePerOz || !clientId) {
-        return res.status(400).json({ error: 'investmentAmount, pricePerOz, clientId は必須です' });
+      const userId = req.session.userId;
+      const { investmentAmount, pricePerOz } = req.body;
+      if (!investmentAmount || !pricePerOz) {
+        return res.status(400).json({ error: 'investmentAmount, pricePerOz は必須です' });
       }
       const amount = parseFloat(investmentAmount);
       const price = parseFloat(pricePerOz);
@@ -15,10 +16,10 @@ export function makeCreateInvestment(db) {
       }
       const goldAmount = amount / price;
       const result = await db.query(
-        `INSERT INTO investments (client_id, investment_amount, price_per_oz, gold_amount)
+        `INSERT INTO investments (user_id, investment_amount, price_per_oz, gold_amount)
          VALUES ($1, $2, $3, $4)
          RETURNING id`,
-        [clientId, amount, price, goldAmount]
+        [userId, amount, price, goldAmount]
       );
       res.json({
         id: result.rows[0].id,
@@ -34,10 +35,7 @@ export function makeCreateInvestment(db) {
 export function makeGetPortfolio(db) {
   return async function getPortfolio(req, res, next) {
     try {
-      const { clientId } = req.query;
-      if (!clientId) {
-        return res.status(400).json({ error: 'clientId は必須です' });
-      }
+      const userId = req.session.userId;
       const result = await db.query(
         `SELECT 
            COALESCE(SUM(investment_amount), 0) as totalInvestedUSD,
@@ -48,8 +46,8 @@ export function makeGetPortfolio(db) {
              ELSE 0 
            END as averagePrice
          FROM investments
-         WHERE client_id = $1`,
-        [clientId]
+         WHERE user_id = $1`,
+        [userId]
       );
       const portfolio = result.rows[0];
       const totalInvestedUSD = parseFloat(portfolio.totalinvestedusd) || 0;
@@ -65,10 +63,13 @@ export function makeGetPortfolio(db) {
 export function makeListInvestments(db) {
   return async function listInvestments(req, res, next) {
     try {
+      const userId = req.session.userId;
       const result = await db.query(
-        `SELECT id, client_id, investment_amount, price_per_oz, gold_amount, created_at
+        `SELECT id, user_id, investment_amount, price_per_oz, gold_amount, created_at
          FROM investments
-         ORDER BY created_at DESC`
+         WHERE user_id = $1
+         ORDER BY created_at DESC`,
+        [userId]
       );
       res.json(result.rows);
     } catch (err) {

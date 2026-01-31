@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="GoldDigger - Sign up" />
+    <link rel="stylesheet" href="index.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900&family=Roboto:ital,wght@0,100..900;1,100..900&family=Saira+Stencil+One&display=swap"
+      rel="stylesheet"
+    />
+    <title>Sign up - GoldDigger</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="site-nav">
+        <a href="/" class="nav-brand">GoldDigger</a>
+        <span id="nav-guest" class="nav-links">
+          <a href="login.html">Log in</a>
+          <a href="signup.html">Sign up</a>
+        </span>
+        <span id="nav-user" class="nav-links" hidden>
+          <span id="nav-user-name" class="nav-user-name"></span>
+          <button type="button" id="nav-logout" class="nav-logout-btn">Log out</button>
+        </span>
+      </nav>
+    </header>
+    <main class="auth-page">
+      <h1 class="title">Sign up</h1>
+      <div id="auth-message" class="auth-message" aria-live="polite"></div>
+      <form id="signup-form" class="auth-form">
+        <label for="signup-name">Name</label>
+        <input type="text" id="signup-name" required />
+        <label for="signup-username">Username</label>
+        <input type="text" id="signup-username" required />
+        <label for="signup-email">Email</label>
+        <input type="email" id="signup-email" required />
+        <label for="signup-password">Password</label>
+        <input type="password" id="signup-password" required />
+        <button type="submit">Sign up</button>
+      </form>
+      <p class="auth-footer">Already have an account? <a href="login.html">Log in</a></p>
+    </main>
+    <script src="nav.js"></script>
+    <script type="module" src="signup.js"></script>
+  </body>
+</html>

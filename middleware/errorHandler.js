@@ -1,3 +1,6 @@
+import path from 'node:path';
+const __dirname = import.meta.dirname;
+
 export default function errorHandler(err, req, res, next) {
   console.error('Unhandled error:', err && err.stack ? err.stack : err);
   if (res.headersSent) {
@@ -9,7 +12,7 @@ export default function errorHandler(err, req, res, next) {
     return res.json({ error: err && err.message ? err.message : 'Internal Server Error' });
   }
   if (req.accepts('html')) {
-    const errorPage = new URL('../public/500.html', import.meta.url).pathname;
+    const errorPage = path.join(__dirname, 'public', '500.html');
     try {
       return res.sendFile(errorPage);
     } catch {

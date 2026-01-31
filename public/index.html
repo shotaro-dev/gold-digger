@@ -18,6 +18,19 @@
   </head>
 
   <body>
+    <header class="site-header">
+      <nav class="site-nav">
+        <a href="/" class="nav-brand">GoldDigger</a>
+        <span id="nav-guest" class="nav-links">
+          <a href="login.html">Log in</a>
+          <a href="signup.html">Sign up</a>
+        </span>
+        <span id="nav-user" class="nav-links" hidden>
+          <span id="nav-user-name" class="nav-user-name"></span>
+          <button type="button" id="nav-logout" class="nav-logout-btn">Log out</button>
+        </span>
+      </nav>
+    </header>
     <main>
       <h1 class="title">GoldDigger</h1>
       <img src="gold.png" alt="gold bars and nuggets" />
@@ -32,28 +45,39 @@
           Live Price 🟢
         </p>
       </section>
-      <form>
-        <label for="investment-amount">Amount to invest</label>
-        <div class="input-container">
-          <div class="currency">$</div>
-          <input
-            type="number"
-            id="investment-amount"
-            placeholder="100.00"
-            required
-          />
-        </div>
-        <button
-          id="invest-btn"
-          class="invest-btn"
-          aria-label="Invest in gold now"
-        >
-          Invest Now!
-        </button>
-      </form>
 
-      <!-- ポートフォリオセクション -->
-      <div id="portfolio-section" style="margin: 20px auto; max-width: 320px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 20px;">
+      <!-- 未ログイン時: 金価格のみ。投資はログイン中のみ表示 -->
+      <p id="login-required-msg" class="login-required-msg">
+        <a href="login.html">Log in</a> or <a href="signup.html">Sign up</a> to invest and view your portfolio.
+      </p>
+
+      <!-- ログイン中のみ: 投資フォーム・ポートフォリオ -->
+      <section id="logged-in-section" class="logged-in-section" hidden>
+        <p id="user-info" class="user-info"></p>
+        <form id="invest-form">
+          <label for="investment-amount">Amount to invest</label>
+          <div class="input-container">
+            <div class="currency">$</div>
+            <input
+              type="number"
+              id="investment-amount"
+              placeholder="100.00"
+              required
+            />
+          </div>
+          <button
+            id="invest-btn"
+            class="invest-btn"
+            type="submit"
+            aria-label="Invest in gold now"
+          >
+            Invest Now!
+          </button>
+        </form>
+      </section>
+
+      <!-- ポートフォリオセクション（ログイン中のみ表示） -->
+      <div id="portfolio-section" class="portfolio-section" hidden style="margin: 20px auto; max-width: 320px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 20px;">
         <h3 style="margin-top: 0; color: #eee; font-family: 'Saira Stencil One', cursive;">My Gold Portfolio</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: left; font-size: 0.9em;">
           <div>
@@ -98,6 +122,7 @@
       </dialog>
       <p class="footnote">* 1oz = 1 troy ounce of 24 Carat Gold</p>
     </main>
+    <script src="nav.js"></script>
     <script type="module" src="index.js"></script>
   </body>
 </html>

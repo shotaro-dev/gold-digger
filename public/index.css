@@ -10,15 +10,71 @@ body {
     font-family: 'Roboto', sans;
     letter-spacing: .04em;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    height: 100vh;
+    min-height: 100vh;
     margin: 0;
     color: var(--gold);
 }
 
+/* Header & nav */
+.site-header {
+    width: 100%;
+    background-color: var(--brown);
+    border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+}
+.site-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0.75em 1.5em;
+    gap: 1em;
+}
+.nav-brand {
+    font-family: 'Saira Stencil One', cursive;
+    font-size: 1.4em;
+    color: var(--gold);
+    text-decoration: none;
+}
+.nav-brand:hover {
+    color: var(--dark-gold);
+}
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+}
+.nav-links a {
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 0.95em;
+}
+.nav-links a:hover {
+    color: var(--dark-gold);
+    text-decoration: underline;
+}
+.nav-user-name {
+    color: #ccc;
+    font-size: 0.9em;
+}
+.nav-logout-btn {
+    padding: 0.35em 0.7em;
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+.nav-logout-btn:hover {
+    background: rgba(255, 215, 0, 0.2);
+}
+
 main {
     padding: 2em 2em 1em 2em;
+    margin: 1em 0 2em;
     background-color: var(--brown);
     background-image: linear-gradient(180deg, var(--brown) 60%, var(--dark-gold));
     border-radius: 10px;
@@ -194,6 +250,93 @@ dialog button:focus {
 dialog button {
     cursor: pointer;
     transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* Auth pages (login / signup) */
+.auth-page {
+    max-width: 360px;
+}
+.auth-page .title {
+    font-size: 1.8em;
+    margin-bottom: 0.5em;
+}
+.auth-footer {
+    margin-top: 1em;
+    font-size: 0.95em;
+    color: #aaa;
+    text-align: center;
+}
+.auth-footer a {
+    color: var(--gold);
+    text-decoration: none;
+}
+.auth-footer a:hover {
+    text-decoration: underline;
+}
+.auth-message {
+    color: #ffd700;
+    font-size: 0.9em;
+    min-height: 1.2em;
+}
+.auth-form {
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    border-radius: 10px;
+    padding: 1em;
+}
+.auth-form label {
+    position: static;
+    display: block;
+    margin-bottom: 0.25em;
+    background-color: transparent;
+}
+.auth-form input {
+    border: 2px solid var(--gold);
+    border-radius: 8px;
+    margin-bottom: 0.5em;
+    box-sizing: border-box;
+}
+
+.auth-form button {
+    margin-top: 0.5em;
+    padding: 0.5em 1em;
+    background: var(--gold);
+    color: var(--brown);
+    border: 2px solid var(--dark-gold);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.auth-form button:hover {
+    background: var(--dark-gold);
+    color: #fff;
+}
+.login-required-msg {
+    color: #aaa;
+    font-size: 0.95em;
+    text-align: center;
+    margin: 0.5em 0;
+}
+.login-required-msg a {
+    color: var(--gold);
+    text-decoration: none;
+}
+.login-required-msg a:hover {
+    text-decoration: underline;
+}
+/* ログイン中のみ表示。未ログイン時は必ず非表示 */
+.logged-in-section[hidden],
+.portfolio-section[hidden] {
+    display: none !important;
+}
+.logged-in-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+}
+.user-info {
+    font-size: 0.9em;
+    color: #ccc;
+    margin: 0;
 }
 
 ::backdrop {
