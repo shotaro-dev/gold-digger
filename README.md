@@ -5,77 +5,90 @@
 ## 📝 プロジェクトについて
 
 このプロジェクトは、**Scrimbaのソロプロジェクト**をベースにしています。
+
 - CSS、HTML、画像はScrimbaから提供された素材を使用
 - Cursor（AIアシスタント）を使用して実装とコードレビューを行いました
-- Node.jsの基礎学習を目的とした学習用プロジェクトです
+- **Express.js** と **認証（セッション）** の学習を目的とした学習用プロジェクトです
 
 ## 📋 概要
 
-このプロジェクトは、Node.jsの基礎を学ぶための学習用アプリケーションです。生のNode.js HTTPサーバーを使用し、外部APIからリアルタイムで金価格を取得し、投資シミュレーションを行うことができます。
+Express.js で構築した Web アプリです。外部 API から金価格を取得し、SSE でリアルタイム表示。ユーザー登録・ログイン後は投資シミュレーション（購入履歴・ポートフォリオ）が利用できます。DB は Pglite（PostgreSQL 互換）を使用しています。
 
 ## ✨ 機能
 
-- **リアルタイム価格表示**: Server-Sent Events (SSE) を使用して金価格をリアルタイムで表示
-- **投資シミュレーション**: 投資金額を入力して、購入できる金の量を計算
-- **レスポンシブデザイン**: モダンなUI/UX
+- **リアルタイム価格表示**: Server-Sent Events (SSE) で金価格をリアルタイム表示
+- **認証**: サインアップ・ログイン・ログアウト（セッション + Cookie）
+- **投資シミュレーション**: ログイン中のみ、投資金額を入力して金の購入量を計算・保存
+- **ポートフォリオ**: 合計投資額・保有金量・平均購入単価・現在評価を表示
+- **管理用 API**: 全ユーザー・全投資履歴を JSON で取得（`/api/admin/users`, `/api/admin/investments`）
+- **レスポンシブデザイン**: モダンな UI/UX
 
 ## 🛠️ 技術スタック
 
-- **バックエンド**: Node.js (生のHTTPサーバー)
+- **バックエンド**: Node.js + Express.js
+- **データベース**: Pglite（@electric-sql/pglite）
+- **認証**: express-session（セッション）、bcrypt（パスワードハッシュ）、validator（入力検証）
 - **フロントエンド**: Vanilla JavaScript (ES6+)
-- **リアルタイム通信**: Server-Sent Events (SSE)
-- **イベント管理**: EventEmitter
-- **開発ツール**: nodemon (ファイル変更の自動検知・再起動)
-- **外部API**: [Gold-API.com](https://api.gold-api.com/) (無料・APIキー不要)
+- **リアルタイム通信**: Server-Sent Events (SSE)、EventEmitter（価格ポーリング）
+- **開発ツール**: nodemon
+- **外部API**: [Gold-API.com](https://api.gold-api.com/)（金価格・APIキー不要）
 
-## 📚 学習内容
+## 📁 プロジェクト構造
 
-このプロジェクトで学べる主要な概念：
+```
+gold-digger/
+├── app.js              # Express アプリ定義（ルート・ミドルウェア）
+├── server.js           # サーバー起動・価格ポーリング開始
+├── package.json
+├── controllers/        # ルートハンドラ
+│   ├── admin.js        # 全 users / 全 investments
+│   ├── auth.js         # 登録・ログイン・ログアウト・me
+│   └── investments.js  # 投資・ポートフォリオ・一覧・SSE
+├── routes/
+│   ├── api.js          # /api/* 投資・SSE
+│   ├── auth.js         # /api/auth/* 認証
+│   └── admin.js        # /api/admin/* 管理用
+├── middleware/
+│   ├── auth.js         # requireAuth
+│   ├── errorHandler.js
+│   └── notFound.js
+├── lib/
+│   ├── db.js           # Pglite 初期化・テーブル作成
+│   └── priceEmitter.js # 金価格ポーリング・EventEmitter
+└── public/             # 静的ファイル
+    ├── index.html      # メイン（価格・投資・ポートフォリオ）
+    ├── index.js / index.css
+    ├── login.html, login.js
+    ├── signup.html, signup.js
+    ├── nav.js          # 共通ナビ（ログイン時は Login/Signup 非表示）
+    ├── 404.html
+    └── gold.png
+```
 
-### 1. Node.js HTTPサーバー
-- `http`モジュールを使用した基本的なHTTPサーバーの作成
-- リクエスト/レスポンスの処理
-- ルーティングの実装
+## 🔄 API エンドポイント
 
-### 2. 静的ファイル配信
-- `fs`モジュールでファイルシステムにアクセス
-- `path`モジュールでパスを操作
-- Content-Typeヘッダーの設定
-
-### 3. ルーティング
-- URLパスに基づいたルーティング
-- HTTPメソッド（GET, POST）の処理
-- エラーハンドリング（404ページ）
-
-### 4. EventEmitter
-- イベント駆動プログラミングの基礎
-- カスタムイベントの発火とリスニング
-- クラス継承による拡張
-
-### 5. 外部API連携
-- `fetch` APIを使用したHTTPリクエスト
-- 非同期処理（async/await）
-- エラーハンドリング
-
-### 6. Server-Sent Events (SSE)
-- サーバーからクライアントへの一方向リアルタイム通信
-- リアルタイムデータストリーミング
-- 接続管理とクリーンアップ
-
-### 7. フロントエンド
-- Vanilla JavaScriptでのDOM操作
-- EventSource APIの使用
-- モーダルダイアログの実装
+| メソッド | パス | 説明 |
+|----------|------|------|
+| POST | `/api/auth/register` | ユーザー登録 |
+| POST | `/api/auth/login` | ログイン |
+| POST | `/api/auth/logout` | ログアウト |
+| GET | `/api/auth/me` | 現在のユーザー（認証不要・未ログインは 401） |
+| GET | `/api/stream` | SSE ストリーム（リアルタイム金価格） |
+| POST | `/api/invest` | 投資実行（**要ログイン**） |
+| GET | `/api/portfolio` | ポートフォリオ取得（**要ログイン**） |
+| GET | `/api/investments` | 投資一覧（**要ログイン**） |
+| GET | `/api/admin/users` | 全ユーザー（JSON・認証なし） |
+| GET | `/api/admin/investments` | 全投資履歴（JSON・認証なし） |
 
 ## 🚀 セットアップ
 
 ### 必要な環境
-- Node.js (v18以上推奨)
+
+- Node.js（v18 以上推奨）
 
 ### インストール
 
 ```bash
-# 依存関係のインストール
 npm install
 ```
 
@@ -83,56 +96,26 @@ npm install
 
 ```bash
 # 開発モード（推奨）
-# nodemonを使用：ファイル変更を自動検知してサーバーを再起動
 npm run dev
 
-# 通常モード
+# 本番モード
 npm start
 ```
 
-**開発時の推奨**: `npm run dev` を使用すると、`server.js` やその他のファイルを変更するたびに自動的にサーバーが再起動されるため、開発効率が向上します。
+ブラウザで `http://localhost:3000` にアクセスしてください。
 
-サーバーが起動したら、ブラウザで `http://localhost:3000` にアクセスしてください。
+### 環境変数（任意）
 
-## 📁 プロジェクト構造
+- `PORT` - サーバーポート（既定: 3000）
+- `SESSION_SECRET` - セッション署名用（本番では必ず設定推奨）
 
-```
-gold-digger/
-├── server.js          # メインサーバーファイル
-├── package.json       # 依存関係とスクリプト
-├── public/            # 静的ファイル
-│   ├── index.html     # メインHTML
-│   ├── index.css      # スタイルシート
-│   ├── index.js       # フロントエンドJavaScript
-│   ├── 404.html       # 404エラーページ
-│   └── gold.png       # 画像ファイル
-└── README.md          # このファイル
-```
+## 📚 学習で押さえている内容
 
-## 🔄 API エンドポイント
-
-- `GET /` - メインページ
-- `GET /api/stream` - SSEストリーム（リアルタイム価格）
-- `POST /api/invest` - 投資情報の送信
-
-## 🎯 今後の拡張予定
-
-以下の機能は、SQL/Expressを学んだ後に実装予定：
-
-- [ ] SQLiteデータベースで購入履歴を保存
-- [ ] Express.jsへの移行
-- [ ] 購入履歴の表示機能
-- [ ] PDF証明書の生成（データベースから取得したデータを使用）
-- [ ] メール送信機能
-
-## 💡 学習のポイント
-
-このプロジェクトは、フレームワーク（Express等）を使わずに、Node.jsのコア機能を理解することを目的としています。以下の点を意識して学習しました：
-
-1. **低レベルAPIの理解**: フレームワークが何をしているのかを理解する
-2. **イベント駆動プログラミング**: Node.jsの非同期処理の基礎
-3. **リアルタイム通信**: SSEの実装と使い方
-4. **エラーハンドリング**: 適切なエラー処理の実装
+- **Express**: ルーティング、ミドルウェア、静的ファイル、JSON ボディ、エラーハンドリング・404
+- **認証**: セッション（express-session）、Cookie、bcrypt、保護ルート（requireAuth）
+- **DB**: Pglite、SQL（users / investments テーブル）
+- **SSE**: リアルタイム価格配信、EventEmitter によるポーリング
+- **フロント**: フォーム送信、`credentials: 'include'`、ナビの出し分け
 
 ## 📝 ライセンス
 
