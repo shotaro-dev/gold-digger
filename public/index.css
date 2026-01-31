@@ -46,6 +46,10 @@ body {
     align-items: center;
     gap: 1em;
 }
+#nav-guest[hidden],
+#nav-user[hidden] {
+    display: none !important;
+}
 .nav-links a {
     color: var(--gold);
     text-decoration: none;
