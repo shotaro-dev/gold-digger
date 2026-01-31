@@ -5,6 +5,7 @@ import db from './lib/db.js';
 import PriceEmitter from './lib/priceEmitter.js';
 import createApiRouter from './routes/api.js';
 import createAuthRouter from './routes/auth.js';
+import createAdminRouter from './routes/admin.js';
 import notFound from './middleware/notFound.js';
 import errorHandler from './middleware/errorHandler.js';
 
@@ -24,6 +25,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const priceEmitter = new PriceEmitter();
 app.use('/api/auth', createAuthRouter(db));
+app.use('/api/admin', createAdminRouter(db));
 const apiRouter = createApiRouter(db, priceEmitter);
 app.use('/api', apiRouter);
 
