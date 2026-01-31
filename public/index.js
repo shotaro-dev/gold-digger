@@ -29,11 +29,6 @@ let currentPrice = null;
 
 const fetchOpts = { credentials: 'include' };
 
-// Remove legacy client_id from localStorage if present
-try {
-  localStorage.removeItem('gold_digger_client_id');
-} catch (_) {}
-
 // 初期状態: 投資・ポートフォリオは非表示（checkAuth でログイン時のみ表示する）
 if (loggedInSection) loggedInSection.hidden = true;
 if (portfolioSection) portfolioSection.hidden = true;
