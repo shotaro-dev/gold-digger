@@ -3,7 +3,7 @@ import path from 'node:path';
 const __dirname = import.meta.dirname;
 
 export default function notFound(req, res) {
-  const notFoundPage = path.join(__dirname, 'public', '404.html');
+  const notFoundPage = path.join(__dirname,'..', 'public', '404.html');
   res.status(404);
   if (req.accepts('html')) {
     try {
